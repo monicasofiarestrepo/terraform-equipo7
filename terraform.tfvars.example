@@ -1,0 +1,13 @@
+project_id = "equipo7-terraform"
+
+# Escenario 1 — Producción activa (100% / 0%)
+weight_produccion   = 1000
+weight_contingencia = 0
+
+# Escenario 2 — Mantenimiento total (0% / 100%)
+# weight_produccion   = 0
+# weight_contingencia = 1000
+
+# Escenario 3 — Balance equitativo (50% / 50%)
+# weight_produccion   = 500
+# weight_contingencia = 500

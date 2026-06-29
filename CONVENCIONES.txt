@@ -1,0 +1,305 @@
+================================================================================
+CONVENCIONES DEL PROYECTO — Equipo 7 — Fase 0 (decisiones cerradas)
+================================================================================
+Contrato de integración entre Moni, Mario y Mafe.
+Si alguien cambia un nombre, debe actualizar este archivo y avisar.
+
+--------------------------------------------------------------------------------
+0. PROYECTO GCP OFICIAL DEL EQUIPO (validado 2026-06-28)
+--------------------------------------------------------------------------------
+
+  project_id     = equipo7-terraform
+  project_number = 124072315662
+  owner          = morestrepol@unal.edu.co
+
+  Compute Engine API: HABILITADA
+  Región despliegue:  us-central1
+  Zona:               us-central1-a
+
+  IP pública reservada (output lb_ip_address):
+    136.69.118.83  (recurso equipo7-lb-ip, status RESERVED)
+
+  Estado parte Moni: COMPLETA Y VALIDADA EN GCP
+    - equipo7-vpc          (CUSTOM)
+    - equipo7-subnet       (10.0.0.0/24, us-central1)
+    - equipo7-allow-lb-health-checks
+    - equipo7-deny-ssh-external
+    - equipo7-lb-ip        (136.69.118.83)
+
+  Validación rápida (terminal):
+    gcloud compute networks list --project=equipo7-terraform
+    gcloud compute firewall-rules list --project=equipo7-terraform --filter="name:equipo7"
+    gcloud compute addresses list --global --project=equipo7-terraform
+
+--------------------------------------------------------------------------------
+1. ESTRUCTURA DEL REPOSITORIO
+--------------------------------------------------------------------------------
+
+Raíz plana (sin módulos). Un solo terraform apply despliega todo.
+
+  provider.tf       -> Moni   (provider + versiones)
+  variables.tf      -> Moni   (todas las variables del equipo)
+  network.tf        -> Moni   (VPC + subred)
+  firewall.tf       -> Moni   (reglas de firewall)
+  ip.tf             -> Moni   (IP global estática)
+  outputs.tf        -> Todos  (cada quien añade sus outputs)
+  iam.tf            -> Todos  (IAM profesor + equipo)
+  compute.tf        -> Mario  (templates, MIGs, health checks)
+  loadbalancer.tf   -> Mafe   (backends, url map, proxy, forwarding rule)
+  terraform.tfvars  -> Local  (NO se sube a git; cada quien el suyo)
+
+--------------------------------------------------------------------------------
+2. REGIÓN Y ZONA (optimización de costos)
+--------------------------------------------------------------------------------
+
+  region = us-central1
+  zone   = us-central1-a
+
+Por qué:
+  - Región con buena disponibilidad de e2-micro (tier gratuito / bajo costo).
+  - Documentación y ejemplos de GCP LB usan us-central1 con frecuencia.
+  - Una sola zona basta: los MIGs regionales distribuyen dentro de la región.
+
+--------------------------------------------------------------------------------
+3. PREFIJO DE NOMBRES
+--------------------------------------------------------------------------------
+
+  name_prefix = "equipo7"
+
+Todos los recursos de GCP usan: ${var.name_prefix}-<recurso>
+
+Ejemplos:
+  equipo7-vpc
+  equipo7-subnet
+  equipo7-lb-ip
+  equipo7-mig-produccion
+  equipo7-backend-produccion
+
+Por qué:
+  - Evita colisiones si el profesor ya tiene recursos en su proyecto.
+  - Nombres predecibles para referencias entre archivos .tf.
+  - Cumple restricción GCP: minúsculas y guiones, sin espacios.
+
+--------------------------------------------------------------------------------
+4. RED (VPC)
+--------------------------------------------------------------------------------
+
+  network_name = equipo7-vpc
+  subnet_name  = equipo7-subnet
+  subnet_cidr  = 10.0.0.0/24
+
+Por qué:
+  - VPC custom (auto_create_subnetworks = false): control explícito de la subred.
+  - /24 da 254 hosts, más que suficiente para 2 MIGs pequeños.
+  - 10.0.0.0/24 es rango privado estándar, sin solapamiento con rangos de GCP.
+
+Mario debe referenciar:
+  network = var.network_name
+  subnetwork = google_compute_subnetwork.subnet.name  (o var.subnet_name)
+
+--------------------------------------------------------------------------------
+5. NETWORK TAG Y PUERTO
+--------------------------------------------------------------------------------
+
+  backend_network_tag = http-server
+  backend_port        = 80
+
+Por qué:
+  - http-server es el tag recomendado en documentación de GCP para VMs web.
+  - Puerto 80: HTTP estándar para external HTTP load balancer sin TLS.
+  - El firewall de Moni solo abre este puerto a los rangos del balanceador.
+
+Mario OBLIGATORIO en instance templates:
+  tags = [var.backend_network_tag]
+
+Startup-script de Mario debe servir HTTP en puerto 80 (nginx o python http.server).
+
+--------------------------------------------------------------------------------
+6. FIREWALL (Moni)
+--------------------------------------------------------------------------------
+
+Regla ALLOW (nombre: equipo7-allow-lb-health-checks):
+  - TCP puerto 80 (var.backend_port)
+  - source_ranges: 130.211.0.0/22, 35.191.0.0/16
+  - target_tags: http-server
+
+Regla DENY (nombre: equipo7-deny-ssh-external):
+  - TCP puerto 22 desde 0.0.0.0/0
+  - priority 1000 (baja prioridad = se evalúa al final)
+
+Por qué:
+  - Sin la regla ALLOW, health checks fallan y el LB no enruta tráfico.
+  - SSH bloqueado cumple requisito de seguridad del enunciado.
+  - No se permite configuración manual post-deploy (rúbrica).
+
+--------------------------------------------------------------------------------
+7. IP PÚBLICA ÚNICA (Moni -> Mafe)
+--------------------------------------------------------------------------------
+
+Recurso Terraform:
+  google_compute_global_address.lb_ip
+  name = equipo7-lb-ip
+
+Output:
+  lb_ip_address = 136.69.118.83  (valor actual en GCP, jun 2026)
+
+Mafe conecta en google_compute_global_forwarding_rule:
+  ip_address = google_compute_global_address.lb_ip.address
+  port_range = "80"
+
+Por qué global address:
+  - External HTTP(S) Load Balancer es global en GCP.
+  - Una sola IP es el "punto de entrada único" del enunciado.
+
+--------------------------------------------------------------------------------
+8. NOMBRES DE RECURSOS POR PERSONA
+--------------------------------------------------------------------------------
+
+MONI (COMPLETO — validado en GCP):
+  google_compute_network.vpc              -> equipo7-vpc
+  google_compute_subnetwork.subnet        -> equipo7-subnet
+  google_compute_firewall (allow)         -> equipo7-allow-lb-health-checks
+  google_compute_firewall (deny ssh)      -> equipo7-deny-ssh-external
+  google_compute_global_address.lb_ip     -> equipo7-lb-ip (136.69.118.83)
+
+MARIO (pendiente — usar estos nombres):
+  google_compute_instance_template        -> equipo7-tpl-produccion
+                                           -> equipo7-tpl-contingencia
+  google_compute_region_instance_group_manager
+                                          -> equipo7-mig-produccion
+                                          -> equipo7-mig-contingencia
+  google_compute_health_check             -> equipo7-hc-produccion
+                                           -> equipo7-hc-contingencia
+
+  Contenido HTML exacto (rúbrica):
+    Producción:   "Bienvenido al Servicio Principal - Versión Producción"
+    Contingencia: "Error 503 - Sitio en Mantenimiento Programado"
+
+  Tipo de máquina: e2-micro
+  MIGs SEPARADOS (nunca comparten VM)
+
+  Outputs a añadir en outputs.tf:
+    mig_produccion_instance_group
+    mig_contingencia_instance_group
+    health_check_produccion_id
+    health_check_contingencia_id
+
+MAFE (pendiente — usar estos nombres):
+  google_compute_backend_service          -> equipo7-backend-produccion
+                                           -> equipo7-backend-contingencia
+  google_compute_url_map                  -> equipo7-url-map
+  google_compute_target_http_proxy        -> equipo7-http-proxy
+  google_compute_global_forwarding_rule   -> equipo7-forwarding-rule
+
+  URL map debe usar route_rules + route_action + weighted_backend_services.
+  NO usar path_rule simple; no soporta pesos entre backend services.
+
+--------------------------------------------------------------------------------
+9. PESOS DE TRÁFICO (Mafe — variables ya definidas)
+--------------------------------------------------------------------------------
+
+GCP usa escala 0-1000, no porcentajes directos.
+Proporción = peso / suma(pesos).
+
+  Escenario 1 (100% producción):     weight_produccion=1000, weight_contingencia=0
+  Escenario 2 (100% contingencia):   weight_produccion=0,    weight_contingencia=1000
+  Escenario 3 (50/50):               weight_produccion=500,  weight_contingencia=500
+
+Solo se cambia terraform.tfvars entre escenarios. Sin tocar .tf ni consola GCP.
+
+--------------------------------------------------------------------------------
+10. PUNTOS DE INTEGRACIÓN (costuras)
+--------------------------------------------------------------------------------
+
+  Moni IP  <----------  Mafe forwarding rule
+       google_compute_global_address.lb_ip.address
+
+  Mario MIG  <------  Mafe backend service
+       backend { group = <instance_group_manager>.instance_group }
+
+  Mario HC  <-------  Mafe backend service
+       health_checks = [google_compute_health_check.xxx.id]
+
+  Moni tag  <-------  Mario templates
+       tags = [var.backend_network_tag]
+
+  Moni firewall  <--  Mario tag + puerto 80
+       target_tags = [var.backend_network_tag]
+
+--------------------------------------------------------------------------------
+11. IAM (compartido — implementado en iam.tf)
+--------------------------------------------------------------------------------
+
+  Rol asignado a todos: roles/editor
+
+  Miembros:
+    user:vdrestrepot@unal.edu.co   (profesor — revisión)
+    user:mcalleag@unal.edu.co      (Mario — cómputo)
+    user:mcanas@unal.edu.co        (Mafe — balanceo)
+    user:morestrepol@unal.edu.co   (Moni — owner del proyecto)
+
+  Verificar: consola GCP -> IAM y administración -> IAM
+
+  Setup local para Mario y Mafe:
+    gcloud auth login
+    gcloud auth application-default login
+    gcloud config set project equipo7-terraform
+    cp terraform.tfvars.example terraform.tfvars
+    # project_id = "equipo7-terraform"
+
+--------------------------------------------------------------------------------
+12. ORDEN DE TRABAJO Y MERGE
+--------------------------------------------------------------------------------
+
+  1. Moni sube fundación -> main                    [HECHO]
+  2. Mario trabaja en compute.tf                    [PENDIENTE]
+  3. Mafe trabaja en loadbalancer.tf                [PENDIENTE]
+  4. Prueban los 3 escenarios juntos                [PENDIENTE]
+  5. terraform destroy + captura para README        [PENDIENTE]
+  6. terraform fmt -recursive antes de entregar     [PENDIENTE]
+
+--------------------------------------------------------------------------------
+13. COSTOS Y CUÁNDO HACER DESTROY
+--------------------------------------------------------------------------------
+
+  NO hace falta cerrar la cuenta GCP ni el proyecto equipo7-terraform.
+  Los créditos de prueba siguen en la cuenta aunque destruyas recursos.
+
+  Qué cuesta mientras esté desplegado (parte Moni sola):
+    - VPC, subred, reglas firewall: prácticamente $0
+    - IP estática global RESERVADA sin LB conectado: ~$0.01 USD/hora
+      (GCP cobra IPs externas reservadas aunque no estén en uso)
+
+  Recomendación:
+    - Si nadie va a probar en los próximos días -> terraform destroy
+    - Cuando Mario/Mafe integren -> terraform apply de nuevo (misma IP
+      si el state se conserva localmente; si destroy, se recrea al apply)
+    - Antes de entregar al profesor -> terraform destroy obligatorio
+    - NO borrar el proyecto GCP; solo destruir recursos con Terraform
+
+  terraform destroy NO revoca IAM ni elimina el proyecto; solo infra de .tf
+
+--------------------------------------------------------------------------------
+14. COMANDOS ÚTILES PARA VALIDAR LA PARTE DE MONI
+--------------------------------------------------------------------------------
+
+  cp terraform.tfvars.example terraform.tfvars
+  # project_id = "equipo7-terraform"
+
+  terraform init
+  terraform fmt -recursive
+  terraform validate
+  terraform plan
+
+  Plan esperado (parte Moni + IAM): 6 recursos si IAM ya aplicado, o
+  8 con Mario/Mafe pendientes: VPC, subred, 2 firewalls, 1 IP, 3 IAM.
+
+  Resultado validado (gcloud):
+    equipo7-vpc          CUSTOM
+    equipo7-allow-lb-health-checks   ALLOW tcp:80
+    equipo7-deny-ssh-external        DENY tcp:22
+    equipo7-lb-ip        136.69.118.83  RESERVED
+
+================================================================================
+FIN — Cualquier cambio a estas convenciones requiere acuerdo del equipo.
+================================================================================
