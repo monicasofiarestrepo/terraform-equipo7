@@ -69,8 +69,8 @@ resource "google_compute_url_map" "url_map" {
   default_service = google_compute_backend_service.backend_produccion.id
 
   host_rule {
-  hosts        = ["*"]
-  path_matcher = "path-matcher"
+    hosts        = ["*"]
+    path_matcher = "path-matcher"
   }
 
   path_matcher {
@@ -82,7 +82,7 @@ resource "google_compute_url_map" "url_map" {
       match_rules {
         prefix_match = "/"
       }
-      
+
       route_action {
         weighted_backend_services {
           backend_service = google_compute_backend_service.backend_produccion.id
@@ -106,7 +106,7 @@ resource "google_compute_target_http_proxy" "http_proxy" {
 # 5. Global Forwarding Rule (Punto de Entrada Único)
 resource "google_compute_global_forwarding_rule" "forwarding_rule" {
   name                  = "${var.name_prefix}-forwarding-rule"
-  ip_address            = google_compute_global_address.lb_ip.address 
+  ip_address            = google_compute_global_address.lb_ip.address
   ip_protocol           = "TCP"
   load_balancing_scheme = "EXTERNAL_MANAGED"
   port_range            = var.backend_port
