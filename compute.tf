@@ -1,5 +1,5 @@
 # ==============================================================================
-# compute.tf — Mario (capa de cómputo)
+# compute.tf (capa de cómputo)
 # ==============================================================================
 # 2 instance templates + 2 MIGs regionales separados + 2 health checks.
 # Producción y contingencia viven en máquinas independientes (aislamiento de

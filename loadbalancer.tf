@@ -1,4 +1,4 @@
-# Mafe — Balanceo y control de tráfico por pesos
+# Balanceo y control de tráfico por pesos
 #
 # Recursos a implementar:
 #   - google_compute_backend_service (backend-produccion)
@@ -7,10 +7,8 @@
 #   - google_compute_target_http_proxy
 #   - google_compute_global_forwarding_rule
 #
-# Referencias de Moni:
+# Referencias:
 #   - IP pública: google_compute_global_address.lb_ip.address
-#
-# Referencias de Mario (cuando existan):
 #   - backend.group = <mig instance group self_link>
 #   - health_checks = [<health_check self_link>]
 #
@@ -32,7 +30,7 @@
 
 
 # ================================================================================
-# CÓDIGO DE MAFE — CONFIGURACIÓN DEL EXTERNAL HTTP LOAD BALANCER CON PESOS
+# CONFIGURACIÓN DEL EXTERNAL HTTP LOAD BALANCER CON PESOS
 # ================================================================================
 
 # 1. Backend Service para el Servicio Principal (Producción)
@@ -70,6 +68,11 @@ resource "google_compute_url_map" "url_map" {
   name            = "${var.name_prefix}-url-map"
   default_service = google_compute_backend_service.backend_produccion.id
 
+  host_rule {
+  hosts        = ["*"]
+  path_matcher = "path-matcher"
+  }
+
   path_matcher {
     name            = "path-matcher"
     default_service = google_compute_backend_service.backend_produccion.id
@@ -103,7 +106,7 @@ resource "google_compute_target_http_proxy" "http_proxy" {
 # 5. Global Forwarding Rule (Punto de Entrada Único)
 resource "google_compute_global_forwarding_rule" "forwarding_rule" {
   name                  = "${var.name_prefix}-forwarding-rule"
-  ip_address            = google_compute_global_address.lb_ip.address # Cruce con Moni
+  ip_address            = google_compute_global_address.lb_ip.address 
   ip_protocol           = "TCP"
   load_balancing_scheme = "EXTERNAL_MANAGED"
   port_range            = var.backend_port

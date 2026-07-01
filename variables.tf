@@ -51,7 +51,7 @@ variable "backend_port" {
   default     = 80
 }
 
-# --- Variables de Mafe (balanceo por pesos) ---
+# --- Variables de balanceo por pesos ---
 
 variable "weight_produccion" {
   description = "Peso del servicio principal (0-1000)"
