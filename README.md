@@ -117,24 +117,28 @@ for i in $(seq 1 10); do curl -s http://<IP_DEL_BALANCEADOR>/ | grep -o '<h1>.*<
 
 ---
 
-### Escenario 3 — Balance equitativo (500 / 500)
+### Escenario 3 — Balance equitativo (500 / 500) probado usando curl 
 
 ![Escenario 3 - Alternancia por curl](evidencias/alternancia.png)
 
 ---
 
-### (Opcional) IAM — Acceso del profesor
+### Cierre del proyecto — `terraform destroy`
+
+![Terraform destroy completado](evidencias/terraform-destroy.png)
+
+### IAM — Acceso del profesor
 
 ![IAM profesor como Editor](evidencias/IAM-roles.png)
 
 ---
 
-## Acceso e IAM (revisión)
+## Acceso e IAM 
 
 El acceso del profesor está definido como código en `iam.tf` y se crea con el
 `apply`. Miembros con rol `roles/editor`:
 
-- `vdrestrepot@unal.edu.co` (profesor — revisión)
+- `vdrestrepot@unal.edu.co` (profesor)
 - `morestrepol@unal.edu.co` (Mónica)
 - `mcalleag@unal.edu.co` (María Fernanda)
 - `mcanas@unal.edu.co` (Mario)
