@@ -123,7 +123,7 @@ for i in $(seq 1 10); do curl -s http://<IP_DEL_BALANCEADOR>/ | grep -o '<h1>.*<
 
 ---
 
-### Cierre del proyecto — `terraform destroy`
+### Cierre del proyecto — terraform destroy
 
 ![Terraform destroy completado](evidencias/terraform-destroy.png)
 
