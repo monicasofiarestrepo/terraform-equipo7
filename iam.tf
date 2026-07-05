@@ -1,3 +1,4 @@
+/*
 resource "google_project_iam_member" "profesor_editor" {
   project = var.project_id
   role    = "roles/editor"
@@ -15,3 +16,4 @@ resource "google_project_iam_member" "mafe_editor" {
   role    = "roles/editor"
   member  = "user:mcanas@unal.edu.co"
 }
+*/
